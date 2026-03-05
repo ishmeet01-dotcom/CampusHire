@@ -1,0 +1,212 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String
+  avatar        String?
+  college       String?
+  department    String?
+  year          Int?
+  skills        String @default("[]")
+  bio           String?
+  portfolio     String?
+  role          String   @default("BUYER")
+  rating        Float    @default(0)
+  totalRatings  Int      @default(0)
+  badges        String @default("[]")
+  banned        Boolean  @default(false)
+  googleId      String?  @unique
+  profileSetup  Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  projectsPosted   Project[]      @relation("BuyerProjects")
+  bids             Bid[]
+  sentMessages     Message[]      @relation("SentMessages")
+  receivedMessages Message[]      @relation("ReceivedMessages")
+  notifications    Notification[]
+  buyerTransactions    Transaction[] @relation("BuyerTransactions")
+  helperTransactions   Transaction[] @relation("HelperTransactions")
+  reviewsGiven     Review[]       @relation("ReviewsGiven")
+  reviewsReceived  Review[]       @relation("ReviewsReceived")
+  buyerDisputes    Dispute[]      @relation("BuyerDisputes")
+  helperDisputes   Dispute[]      @relation("HelperDisputes")
+  supportTickets   SupportTicket[]
+
+  @@map("users")
+}
+
+model Project {
+  id          String        @id @default(cuid())
+  title       String
+  description String
+  category    String
+  budget      Float
+  deadline    DateTime
+  skills      String @default("[]")
+  status      String @default("OPEN")
+  buyerId     String
+  helperId    String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relations
+  buyer        User          @relation("BuyerProjects", fields: [buyerId], references: [id])
+  bids         Bid[]
+  messages     Message[]
+  transactions Transaction[]
+  reviews      Review[]
+  disputes     Dispute[]
+
+  @@map("projects")
+}
+
+model Bid {
+  id        String    @id @default(cuid())
+  amount    Float
+  message   String?
+  status    String @default("PENDING")
+  projectId String
+  helperId  String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id])
+  helper  User    @relation(fields: [helperId], references: [id])
+
+  @@map("bids")
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  content    String
+  read       Boolean  @default(false)
+  senderId   String
+  receiverId String
+  projectId  String?
+  createdAt  DateTime @default(now())
+
+  // Relations
+  sender   User     @relation("SentMessages", fields: [senderId], references: [id])
+  receiver User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  project  Project? @relation(fields: [projectId], references: [id])
+
+  @@map("messages")
+}
+
+model Notification {
+  id      String           @id @default(cuid())
+  type    String
+  title   String
+  message String
+  read    Boolean          @default(false)
+  link    String?
+  userId  String
+  createdAt DateTime       @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
+}
+
+model Transaction {
+  id                String            @id @default(cuid())
+  amount            Float
+  razorpayOrderId   String?
+  razorpayPaymentId String?
+  razorpaySignature String?
+  status            String @default("PENDING")
+  projectId         String
+  buyerId           String
+  helperId          String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  // Relations
+  project Project  @relation(fields: [projectId], references: [id])
+  buyer   User     @relation("BuyerTransactions", fields: [buyerId], references: [id])
+  helper  User?    @relation("HelperTransactions", fields: [helperId], references: [id])
+  escrow  Escrow?
+
+  @@map("transactions")
+}
+
+model Escrow {
+  id            String       @id @default(cuid())
+  holdDate      DateTime     @default(now())
+  releaseDate   DateTime?
+  disputeFlag   Boolean      @default(false)
+  status        String @default("HELD")
+  transactionId String       @unique
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  // Relations
+  transaction Transaction @relation(fields: [transactionId], references: [id])
+
+  @@map("escrows")
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  rating     Int
+  comment    String?
+  projectId  String
+  reviewerId String
+  reviewedId String
+  createdAt  DateTime @default(now())
+
+  // Relations
+  project  Project @relation(fields: [projectId], references: [id])
+  reviewer User    @relation("ReviewsGiven", fields: [reviewerId], references: [id])
+  reviewed User    @relation("ReviewsReceived", fields: [reviewedId], references: [id])
+
+  @@map("reviews")
+}
+
+model Dispute {
+  id         String        @id @default(cuid())
+  reason     String
+  adminNote  String?
+  resolution String?
+  status     String @default("OPEN")
+  projectId  String
+  buyerId    String
+  helperId   String
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id])
+  buyer   User    @relation("BuyerDisputes", fields: [buyerId], references: [id])
+  helper  User    @relation("HelperDisputes", fields: [helperId], references: [id])
+
+  @@map("disputes")
+}
+
+model SupportTicket {
+  id        String   @id @default(cuid())
+  subject   String
+  message   String
+  status    String   @default("OPEN")
+  response  String?
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("support_tickets")
+}
